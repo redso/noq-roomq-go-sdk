@@ -56,10 +56,11 @@ The following is an RoomQ integration example in Go.
 package main
 
 import (
+    "encoding/json"
+    "fmt"
     "log"
     "net/http"
 
-    "github.com/gin-gonic/gin"
     NoQ_RoomQ "github.com/redso/noq-roomq-go-sdk"
     NoQ_RoomQ_Exception "github.com/redso/noq-roomq-go-sdk/Exception"
 )
@@ -71,101 +72,115 @@ const (
     ROOMQ_STATUS_API    = "STATUS API"
 )
 
-type Response gin.H
+type Response map[string]interface{}
 
 func Log(message ...interface{}) {
-    log.Println(message)
+    log.Println(message...)
 }
 
-func getTicket(ctx *gin.Context) {
-    defer errorHandler(ctx)
+func getTicket(httpRes http.ResponseWriter, httpReq *http.Request) {
+    defer errorHandler(httpRes)
     Log("Get Ticket")
-    var resp Response
-    sessionID := ctx.Query("sessionID")
-    redirectURL := ctx.Query("redirectURL")
-    roomQ := NoQ_RoomQ.RoomQ(ROOM_ID, ROOM_SECRET, ROOMQ_TICKET_ISSUER, ROOMQ_STATUS_API, ctx, true)
-    // Check if the request has valid ticket
-    // If "session id" is null, SDK will generate UUID as "session id"
-    validationResult := roomQ.Validate(ctx, redirectURL, sessionID)
+    httpRes.Header().Set("Content-Type", "application/json")
+    sessionID := httpReq.URL.Query().Get("sessionID")
+    redirectURL := httpReq.URL.Query().Get("redirectURL")
+
+    roomQ := NoQ_RoomQ.RoomQ(ROOM_ID, ROOM_SECRET, ROOMQ_TICKET_ISSUER, ROOMQ_STATUS_API, httpReq, true)
+    validationResult := roomQ.Validate(httpReq, httpRes, redirectURL, sessionID)
     needRedirect := validationResult.NeedRedirect()
     if validationResult.NeedRedirect() {
         redirectURL = validationResult.GetRedirectURL()
     } else {
         // Proceed to main logic
+        Log("Proceed to main logic")
     }
-    Log(resp)
-    ctx.IndentedJSON(http.StatusOK, Response{
-        "redirect":    needRedirect,
-        "redirectURL": redirectURL,
-    })
+    val, _ := json.Marshal(Response{"redirect": needRedirect, "redirectURL": redirectURL})
+    httpRes.Write(val)
 }
 
-func getServing(ctx *gin.Context) {
-    defer errorHandler(ctx)
+func getServing(httpRes http.ResponseWriter, httpReq *http.Request) {
+    defer errorHandler(httpRes)
+    httpRes.Header().Set("Content-Type", "application/json")
     Log("Get serving")
-    roomQ := NoQ_RoomQ.RoomQ(ROOM_ID, ROOM_SECRET, ROOMQ_TICKET_ISSUER, ROOMQ_STATUS_API, ctx, true)
-    if serving, err := roomQ.GetServing(ctx); err != nil {
-        ctx.IndentedJSON(http.StatusInternalServerError, Response{"error": err.Error()})
+    roomQ := NoQ_RoomQ.RoomQ(ROOM_ID, ROOM_SECRET, ROOMQ_TICKET_ISSUER, ROOMQ_STATUS_API, httpReq, true)
+    if serving, err := roomQ.GetServing(); err != nil {
+        httpRes.WriteHeader(http.StatusInternalServerError)
+        val, _ := json.Marshal(Response{"error": err.Error()})
+        httpRes.Write(val)
     } else {
-        ctx.IndentedJSON(http.StatusOK, Response{"serving": serving})
+        val, _ := json.Marshal(Response{"serving": serving})
+        httpRes.Write(val)
     }
 }
 
-func extendTicket(ctx *gin.Context) {
-    defer errorHandler(ctx)
+func extendTicket(httpRes http.ResponseWriter, httpReq *http.Request) {
+    defer errorHandler(httpRes)
+    httpRes.Header().Set("Content-Type", "application/json")
     Log("Extend")
-    roomQ := NoQ_RoomQ.RoomQ(ROOM_ID, ROOM_SECRET, ROOMQ_TICKET_ISSUER, ROOMQ_STATUS_API, ctx, true)
-    if err := roomQ.Extend(ctx, 60); err != nil {
-        ctx.IndentedJSON(http.StatusInternalServerError, Response{"error": err.Error()})
+    roomQ := NoQ_RoomQ.RoomQ(ROOM_ID, ROOM_SECRET, ROOMQ_TICKET_ISSUER, ROOMQ_STATUS_API, httpReq, true)
+    if err := roomQ.Extend(httpRes, 60); err != nil {
+        httpRes.WriteHeader(http.StatusInternalServerError)
+        val, _ := json.Marshal(Response{"error": err.Error()})
+        httpRes.Write(val)
     } else {
-        if serving, err := roomQ.GetServing(ctx); err != nil {
-            ctx.IndentedJSON(http.StatusInternalServerError, Response{"error": err.Error()})
+        if serving, err := roomQ.GetServing(); err != nil {
+            httpRes.WriteHeader(http.StatusInternalServerError)
+            val, _ := json.Marshal(Response{"error": err.Error()})
+            httpRes.Write(val)
         } else {
-            ctx.IndentedJSON(http.StatusOK, Response{"serving": serving})
+            val, _ := json.Marshal(Response{"serving": serving})
+            httpRes.Write(val)
         }
     }
 }
 
-func deleteTicket(ctx *gin.Context) {
-    defer errorHandler(ctx)
+func deleteTicket(httpRes http.ResponseWriter, httpReq *http.Request) {
+    defer errorHandler(httpRes)
+    httpRes.Header().Set("Content-Type", "application/json")
     Log("Extend")
-    roomQ := NoQ_RoomQ.RoomQ(ROOM_ID, ROOM_SECRET, ROOMQ_TICKET_ISSUER, ROOMQ_STATUS_API, ctx, true)
-    if err := roomQ.DeleteServing(ctx); err != nil {
-        ctx.IndentedJSON(http.StatusInternalServerError, Response{"error": err.Error()})
+    roomQ := NoQ_RoomQ.RoomQ(ROOM_ID, ROOM_SECRET, ROOMQ_TICKET_ISSUER, ROOMQ_STATUS_API, httpReq, true)
+    if err := roomQ.DeleteServing(httpRes); err != nil {
+        httpRes.WriteHeader(http.StatusInternalServerError)
+        val, _ := json.Marshal(Response{"error": err.Error()})
+        httpRes.Write(val)
     } else {
-        ctx.IndentedJSON(http.StatusOK, Response{})
+        val, _ := json.Marshal(Response{})
+        httpRes.Write(val)
     }
 }
 
-func errorHandler(ctx *gin.Context) {
+func handleRequests() {
+    http.HandleFunc("/api/roomq/get-ticket", getTicket)
+    http.HandleFunc("/api/roomq/get-serving", getServing)
+    http.HandleFunc("/api/roomq/extend-ticket", extendTicket)
+    http.HandleFunc("/api/roomq/delete-ticket", deleteTicket)
+    http.ListenAndServe("localhost:3000", nil)
+}
+
+func errorHandler(httpRes http.ResponseWriter) {
     if err := recover(); err != nil {
         switch e := err.(type) {
         case *NoQ_RoomQ_Exception.InvalidApiKeyException:
-            ctx.IndentedJSON(http.StatusUnauthorized, gin.H{"error": e.Error()})
+            http.Error(httpRes, e.Error(), http.StatusUnauthorized)
         case *NoQ_RoomQ_Exception.InvalidTokenException:
-            ctx.IndentedJSON(http.StatusUnauthorized, gin.H{"error": e.Error()})
+            http.Error(httpRes, e.Error(), http.StatusUnauthorized)
         case *NoQ_RoomQ_Exception.NotServingException:
-            ctx.IndentedJSON(http.StatusNotFound, gin.H{"error": e.Error()})
+            http.Error(httpRes, e.Error(), http.StatusNotFound)
         case *NoQ_RoomQ_Exception.QueueStoppedException:
-            ctx.IndentedJSON(http.StatusGone, gin.H{"error": e.Error()})
+            http.Error(httpRes, e.Error(), http.StatusGone)
         case *NoQ_RoomQ_Exception.ReachLimitException:
-            ctx.IndentedJSON(http.StatusServiceUnavailable, gin.H{"error": e.Error()})
+            http.Error(httpRes, e.Error(), http.StatusServiceUnavailable)
         default:
             Log(e)
-            ctx.IndentedJSON(http.StatusAccepted, gin.H{})
+            fmt.Fprint(httpRes, "{}")
         }
     }
 }
 
 func main() {
-    router := gin.Default()
-    router.GET("/api/roomq/get-ticket", getTicket)
-    router.GET("/api/roomq/get-serving", getServing)
-    router.GET("/api/roomq/extend-ticket", extendTicket)
-    router.GET("/api/roomq/delete-ticket", deleteTicket)
-    router.Run("0.0.0.0:3000")
+    Log("Web service started on port 3000")
+    handleRequests()
 }
-
 ```
 
 ### Ajax calls
