@@ -9,7 +9,6 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
 	NoQ_RoomQ_Exception "github.com/redso/noq-roomq-go-sdk/Exception"
@@ -26,7 +25,7 @@ type roomQ struct {
 	statusEndpoint string
 }
 
-func RoomQ(clientID string, jwtSecret string, ticketIssuer string, statusEndpoint string, ctx *gin.Context, debug bool) roomQ {
+func RoomQ(clientID string, jwtSecret string, ticketIssuer string, statusEndpoint string, httpReq *http.Request, debug bool) roomQ {
 	rQ := roomQ{
 		clientID:       clientID,
 		jwtSecret:      jwtSecret,
@@ -35,27 +34,27 @@ func RoomQ(clientID string, jwtSecret string, ticketIssuer string, statusEndpoin
 		statusEndpoint: statusEndpoint,
 		tokenName:      fmt.Sprintf("be_roomq_t_%s", clientID),
 	}
-	rQ.token = rQ.GetToken(ctx)
+	rQ.token = rQ.GetToken(httpReq)
 	return rQ
 }
 
-func (rQ roomQ) GetToken(ctx *gin.Context) string {
-	if token, ok := ctx.GetQuery("noq_t"); ok {
+func (rQ roomQ) GetToken(httpReq *http.Request) string {
+	if token := httpReq.URL.Query().Get("noq_t"); len(token) > 0 {
 		return token
 	}
-	if token, err := ctx.Cookie(rQ.tokenName); err == nil {
-		return token
+	if token, err := httpReq.Cookie(rQ.tokenName); err == nil {
+		return token.Value
 	}
 	return ""
 }
 
-func (rQ *roomQ) Validate(ctx *gin.Context, returnURL, sessionID string) validationResult {
+func (rQ *roomQ) Validate(httpReq *http.Request, httpRes http.ResponseWriter, returnURL, sessionID string) validationResult {
 	token := rQ.token
 	currentURL := ""
-	if ctx.Request.TLS != nil {
-		currentURL = fmt.Sprintf("https://%s%s", ctx.Request.Host, ctx.Request.URL.Path)
+	if httpReq.TLS != nil {
+		currentURL = fmt.Sprintf("https://%s%s", httpReq.Host, httpReq.URL.Path)
 	} else {
-		currentURL = fmt.Sprintf("http://%s%s", ctx.Request.Host, ctx.Request.URL.Path)
+		currentURL = fmt.Sprintf("http://%s%s", httpReq.Host, httpReq.URL.Path)
 	}
 	needGenerateJWT := false
 	needRedirect := false
@@ -92,7 +91,14 @@ func (rQ *roomQ) Validate(ctx *gin.Context, returnURL, sessionID string) validat
 		rQ.debugPrint("generating new jwt token")
 		rQ.token = token
 	}
-	ctx.SetCookie(rQ.tokenName, rQ.token, int(time.Now().UnixMilli())+(12*60*60), "/", "", false, false)
+	http.SetCookie(httpRes, &http.Cookie{
+		Name:     rQ.tokenName,
+		Value:    rQ.token,
+		Expires:  time.Now().Add(time.Second * (12 * 60 * 60)),
+		Path:     "/",
+		Domain:   "",
+		HttpOnly: false,
+	})
 	if needRedirect {
 		if len(returnURL) > 0 {
 			return rQ.redirectToTicketIssuer(token, returnURL)
@@ -104,7 +110,7 @@ func (rQ *roomQ) Validate(ctx *gin.Context, returnURL, sessionID string) validat
 	}
 }
 
-func (rQ *roomQ) Extend(ctx *gin.Context, duration int) error {
+func (rQ *roomQ) Extend(httpRes http.ResponseWriter, duration int) error {
 	if backend, err := rQ.GetBackend(); err == nil {
 		httpClient := NoQ_RoomQ_Utils.HttpClient(fmt.Sprintf("https://%s", backend))
 		response := httpClient.Post(fmt.Sprintf("/queue/%s", rQ.clientID), map[string]interface{}{
@@ -123,7 +129,13 @@ func (rQ *roomQ) Extend(ctx *gin.Context, duration int) error {
 		} else {
 			token := response.Get("id").String()
 			rQ.token = token
-			ctx.SetCookie(rQ.tokenName, rQ.token, int(time.Now().UnixMilli())+(12*60*60), "/", "", false, false)
+			http.SetCookie(httpRes, &http.Cookie{
+				Name:     rQ.tokenName,
+				Value:    rQ.token,
+				Expires:  time.Now().Add(time.Second * (12 * 60 * 60)),
+				Path:     "/",
+				HttpOnly: false,
+			})
 			return nil
 		}
 	} else {
@@ -132,7 +144,7 @@ func (rQ *roomQ) Extend(ctx *gin.Context, duration int) error {
 	}
 }
 
-func (rQ *roomQ) GetServing(ctx *gin.Context) (int64, error) {
+func (rQ *roomQ) GetServing() (int64, error) {
 	if backend, err := rQ.GetBackend(); err == nil {
 		httpClient := NoQ_RoomQ_Utils.HttpClient(fmt.Sprintf("https://%s", backend))
 		response := httpClient.Get(fmt.Sprintf("/rooms/%s/servings/%s", rQ.clientID, rQ.token))
@@ -152,7 +164,7 @@ func (rQ *roomQ) GetServing(ctx *gin.Context) (int64, error) {
 	}
 }
 
-func (rQ *roomQ) DeleteServing(ctx *gin.Context) error {
+func (rQ *roomQ) DeleteServing(httpRes http.ResponseWriter) error {
 	if backend, err := rQ.GetBackend(); err == nil {
 		httpClient := NoQ_RoomQ_Utils.HttpClient(fmt.Sprintf("https://%s/queue", backend))
 		response := httpClient.Post(fmt.Sprintf("/%s", rQ.clientID), map[string]interface{}{
@@ -171,10 +183,16 @@ func (rQ *roomQ) DeleteServing(ctx *gin.Context) error {
 			if payload, ok := NoQ_RoomQ_Utils.JwtDecode(rQ.token, rQ.jwtSecret); ok {
 				token := rQ.generateJWT(payload.Get("session_id").String())
 				rQ.token = token
-				ctx.SetCookie(rQ.tokenName, rQ.token, int(time.Now().UnixMilli())+(12*60*60), "/", "", false, false)
+				http.SetCookie(httpRes, &http.Cookie{
+					Name:     rQ.tokenName,
+					Value:    rQ.token,
+					Expires:  time.Now().Add(time.Second * (12 * 60 * 60)),
+					Path:     "/",
+					HttpOnly: false,
+				})
 				return nil
 			} else {
-				return errors.New("Failed to decode jwt")
+				return errors.New("failed to decode jwt")
 			}
 		}
 	} else {
@@ -204,7 +222,7 @@ func (rQ roomQ) redirectToTicketIssuer(token, currentURL string) validationResul
 		return ValidationResult(base.String())
 	} else {
 		rQ.debugPrint("Failed to redirect to ticket issuer")
-		panic("Failed to redirect to ticket issuer")
+		panic("failed to redirect to ticket issuer")
 	}
 }
 
@@ -230,9 +248,9 @@ func (rQ roomQ) debugPrint(message interface{}) {
 }
 
 func removeNoQToken(currentURL string) string {
-	url := regexp.MustCompile("(?i)([&]*)(noq_t=[^&]*)").ReplaceAllString(currentURL, "")
-	url = regexp.MustCompile("(?i)(\\?&)").ReplaceAllString(url, "?")
-	url = regexp.MustCompile("(?i)(\\?$)").ReplaceAllString(url, "")
+	url := regexp.MustCompile(`(?i)([&]*)(noq_t=[^&]*)`).ReplaceAllString(currentURL, "")
+	url = regexp.MustCompile(`(?i)(\\?&)`).ReplaceAllString(url, "?")
+	url = regexp.MustCompile(`(?i)(\\?$)`).ReplaceAllString(url, "")
 	return url
 }
 

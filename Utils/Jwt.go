@@ -33,7 +33,7 @@ func JwtEncode(claims JwtClaims, jwtSecret string) string {
 	if token, err := tokenClaims.SignedString([]byte(jwtSecret)); err == nil {
 		return token
 	} else {
-		panic("Failed to generate JWT")
+		panic("failed to generate JWT")
 	}
 }
 
