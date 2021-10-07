@@ -184,5 +184,5 @@ As hash of URL will not send to server, hash information will be lost.
 ## Version Guidance
 
 | Version | Go dev pkg      | Go Version |
-| ------- | --------------- | ---------------------- |
+| ------- | :--------------- | ---------------------- |
 | 1.x     | `github.com/redso/noq-roomq-go-sdk` | 1.17.1                    |
