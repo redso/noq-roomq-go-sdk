@@ -12,8 +12,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
-	NoQ_RoomQ_Exception "github.com/koktszhozelca/noq-roomq-go-sdk/Exception"
-	NoQ_RoomQ_Utils "github.com/koktszhozelca/noq-roomq-go-sdk/Utils"
+	NoQ_RoomQ_Exception "github.com/redso/noq-roomq-go-sdk/Exception"
+	NoQ_RoomQ_Utils "github.com/redso/noq-roomq-go-sdk/Utils"
 )
 
 type roomQ struct {

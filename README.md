@@ -60,8 +60,8 @@ import (
     "net/http"
 
     "github.com/gin-gonic/gin"
-    NoQ_RoomQ "github.com/koktszhozelca/noq-roomq-go-sdk"
-    NoQ_RoomQ_Exception "github.com/koktszhozelca/noq-roomq-go-sdk/Exception"
+    NoQ_RoomQ "github.com/redso/noq-roomq-go-sdk"
+    NoQ_RoomQ_Exception "github.com/redso/noq-roomq-go-sdk/Exception"
 )
 
 const (
