@@ -34,11 +34,11 @@ func RoomQ(clientID string, jwtSecret string, ticketIssuer string, statusEndpoin
 		statusEndpoint: statusEndpoint,
 		tokenName:      fmt.Sprintf("be_roomq_t_%s", clientID),
 	}
-	rQ.token = rQ.GetToken(httpReq)
+	rQ.token = rQ.getToken(httpReq)
 	return rQ
 }
 
-func (rQ roomQ) GetToken(httpReq *http.Request) string {
+func (rQ roomQ) getToken(httpReq *http.Request) string {
 	if token := httpReq.URL.Query().Get("noq_t"); len(token) > 0 {
 		return token
 	}
@@ -111,7 +111,7 @@ func (rQ *roomQ) Validate(httpReq *http.Request, httpRes http.ResponseWriter, re
 }
 
 func (rQ *roomQ) Extend(httpRes http.ResponseWriter, duration int) error {
-	if backend, err := rQ.GetBackend(); err == nil {
+	if backend, err := rQ.getBackend(); err == nil {
 		httpClient := NoQ_RoomQ_Utils.HttpClient(fmt.Sprintf("https://%s", backend))
 		response := httpClient.Post(fmt.Sprintf("/queue/%s", rQ.clientID), map[string]interface{}{
 			"action":                  "beep",
@@ -145,7 +145,7 @@ func (rQ *roomQ) Extend(httpRes http.ResponseWriter, duration int) error {
 }
 
 func (rQ *roomQ) GetServing() (int64, error) {
-	if backend, err := rQ.GetBackend(); err == nil {
+	if backend, err := rQ.getBackend(); err == nil {
 		httpClient := NoQ_RoomQ_Utils.HttpClient(fmt.Sprintf("https://%s", backend))
 		response := httpClient.Get(fmt.Sprintf("/rooms/%s/servings/%s", rQ.clientID, rQ.token))
 		rQ.debugPrint(response.Raw)
@@ -165,7 +165,7 @@ func (rQ *roomQ) GetServing() (int64, error) {
 }
 
 func (rQ *roomQ) DeleteServing(httpRes http.ResponseWriter) error {
-	if backend, err := rQ.GetBackend(); err == nil {
+	if backend, err := rQ.getBackend(); err == nil {
 		httpClient := NoQ_RoomQ_Utils.HttpClient(fmt.Sprintf("https://%s/queue", backend))
 		response := httpClient.Post(fmt.Sprintf("/%s", rQ.clientID), map[string]interface{}{
 			"action":    "delete_serving",
@@ -254,7 +254,7 @@ func removeNoQToken(currentURL string) string {
 	return url
 }
 
-func (rQ roomQ) GetBackend() (string, interface{}) {
+func (rQ roomQ) getBackend() (string, interface{}) {
 	client := NoQ_RoomQ_Utils.HttpClient(rQ.statusEndpoint)
 	resp := client.Get(fmt.Sprintf("/%s", rQ.clientID))
 	if resp.Get("state").String() == "stopped" {

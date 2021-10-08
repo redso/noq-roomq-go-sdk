@@ -149,14 +149,6 @@ func deleteTicket(httpRes http.ResponseWriter, httpReq *http.Request) {
     }
 }
 
-func handleRequests() {
-    http.HandleFunc("/api/roomq/get-ticket", getTicket)
-    http.HandleFunc("/api/roomq/get-serving", getServing)
-    http.HandleFunc("/api/roomq/extend-ticket", extendTicket)
-    http.HandleFunc("/api/roomq/delete-ticket", deleteTicket)
-    http.ListenAndServe("localhost:3000", nil)
-}
-
 func errorHandler(httpRes http.ResponseWriter) {
     if err := recover(); err != nil {
         switch e := err.(type) {
@@ -175,6 +167,14 @@ func errorHandler(httpRes http.ResponseWriter) {
             fmt.Fprint(httpRes, "{}")
         }
     }
+}
+
+func handleRequests() {
+    http.HandleFunc("/api/roomq/get-ticket", getTicket)
+    http.HandleFunc("/api/roomq/get-serving", getServing)
+    http.HandleFunc("/api/roomq/extend-ticket", extendTicket)
+    http.HandleFunc("/api/roomq/delete-ticket", deleteTicket)
+    http.ListenAndServe("localhost:3000", nil)
 }
 
 func main() {
