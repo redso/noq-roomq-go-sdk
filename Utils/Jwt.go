@@ -12,6 +12,7 @@ type JwtClaims struct {
 	RoomID    string `json:"room_id"`
 	SessionID string `json:"session_id"`
 	Type      string `json:"type"`
+	Deadline  int64  `json:"deadline,omitempty"`
 	jwt.StandardClaims
 }
 
@@ -20,6 +21,7 @@ func (claim JwtClaims) jsonify() JSON {
 		"room_id":    claim.RoomID,
 		"session_id": claim.SessionID,
 		"type":       claim.Type,
+		"deadline":   claim.Deadline,
 	}
 	return JSON{Val: mapping}
 }

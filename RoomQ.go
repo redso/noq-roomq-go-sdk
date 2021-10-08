@@ -69,7 +69,7 @@ func (rQ *roomQ) Validate(httpReq *http.Request, httpRes http.ResponseWriter, re
 				needGenerateJWT = true
 				needRedirect = true
 				rQ.debugPrint("session id not match")
-			} else if data.HasKey("deadline") && data.Get("deadline").Int() < time.Now().UTC().UnixMilli() {
+			} else if data.HasKey("deadline") && data.Get("deadline").Int() < time.Now().UTC().UnixMilli()/1000 {
 				needRedirect = true
 				rQ.debugPrint("deadline exceed")
 			} else if data.Get("type").String() == "queue" {
