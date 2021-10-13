@@ -16,7 +16,6 @@ func HttpClient(baseURL string) httpClient {
 	return httpClient{baseURL: baseURL}
 }
 
-// type method func(path string) (resp *http.Response, err error)
 type request struct {
 	path    string
 	payload io.Reader
