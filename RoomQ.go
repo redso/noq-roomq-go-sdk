@@ -52,9 +52,9 @@ func (rQ *roomQ) Validate(httpReq *http.Request, httpRes http.ResponseWriter, re
 	token := rQ.token
 	currentURL := ""
 	if httpReq.TLS != nil {
-		currentURL = fmt.Sprintf("https://%s%s", httpReq.Host, httpReq.URL.Path)
+		currentURL = fmt.Sprintf("https://%s%s", httpReq.Host, httpReq.URL.RequestURI())
 	} else {
-		currentURL = fmt.Sprintf("http://%s%s", httpReq.Host, httpReq.URL.Path)
+		currentURL = fmt.Sprintf("http://%s%s", httpReq.Host, httpReq.URL.RequestURI())
 	}
 	needGenerateJWT := false
 	needRedirect := false
