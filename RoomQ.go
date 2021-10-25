@@ -249,8 +249,8 @@ func (rQ roomQ) debugPrint(message interface{}) {
 
 func removeNoQToken(currentURL string) string {
 	url := regexp.MustCompile(`(?i)([&]*)(noq_t=[^&]*)`).ReplaceAllString(currentURL, "")
-	url = regexp.MustCompile(`(?i)(\\?&)`).ReplaceAllString(url, "?")
-	url = regexp.MustCompile(`(?i)(\\?$)`).ReplaceAllString(url, "")
+	url = regexp.MustCompile(`(?i)(\?&)`).ReplaceAllString(url, "?")
+	url = regexp.MustCompile(`(?i)(\?$)`).ReplaceAllString(url, "")
 	return url
 }
 
