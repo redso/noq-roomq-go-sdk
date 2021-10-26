@@ -212,13 +212,14 @@ func (rQ roomQ) enter(currentURL string) validationResult {
 
 func (rQ roomQ) redirectToTicketIssuer(token, currentURL string) validationResult {
 	urlWithoutToken := removeNoQToken(currentURL)
+	// Force noq_t in before noq_c & noq_r
+	noq_t := url.Values{}
+	noq_t.Add("noq_t", token)
 	params := url.Values{}
-	params.Add("noq_t", token)
 	params.Add("noq_c", rQ.clientID)
 	params.Add("noq_r", urlWithoutToken)
-	rQ.debugPrint(params)
 	if base, err := url.Parse(rQ.ticketIssuer); err == nil {
-		base.RawQuery = params.Encode()
+		base.RawQuery = noq_t.Encode() + "&" + params.Encode()
 		return ValidationResult(base.String())
 	} else {
 		rQ.debugPrint("Failed to redirect to ticket issuer")
