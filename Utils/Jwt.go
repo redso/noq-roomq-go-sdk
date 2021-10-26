@@ -17,11 +17,12 @@ type JwtClaims struct {
 }
 
 func (claim JwtClaims) jsonify() JSON {
-	mapping := map[string]interface{}{
-		"room_id":    claim.RoomID,
-		"session_id": claim.SessionID,
-		"type":       claim.Type,
-		"deadline":   claim.Deadline,
+	var mapping = make(map[string]interface{})
+	mapping["room_id"] = claim.RoomID
+	mapping["session_id"] = claim.SessionID
+	mapping["type"] = claim.Type
+	if claim.Deadline != 0 {
+		mapping["deadline"] = claim.Deadline
 	}
 	return JSON{Val: mapping}
 }
